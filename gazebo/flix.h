@@ -24,6 +24,10 @@ LowPassFilter<Vector> gyroBiasFilter(0);
 int imuModel = 1, imuBus = 0;
 int imuSckPin = 0, imuMisoPin = 0, imuMosiPin = 0, imuCsPin = -1, imuIntPin = -1;
 int imuSdaPin = 0, imuSclPin = 0;
+int rangeModel = 1, rangeSdaPin = 0, rangeSclPin = 0, rangeBudget = 33000;
+float rangeMax = 1.2, rangeOffset = 0;
+float range = NAN, rangeTime = NAN;
+extern float altitude, verticalSpeed;
 
 // declarations
 void step();
@@ -31,6 +35,8 @@ void computeLoopRate();
 void applyGyro();
 void applyAcc();
 void applyLevel();
+void estimateAltitude();
+void controlAltitude();
 void control();
 void interpretControls();
 void controlAttitude();
@@ -81,6 +87,7 @@ void setLED(bool on) {};
 void calibrateAccel() { print("Skip accel calibrating\n"); };
 void printIMUCalibration() { print("cal: N/A\n"); };
 void printIMUInfo() {};
+void printRangeInfo() { print("range: %g m\naltitude: %g m\nvertical speed: %g m/s\n", range, altitude, verticalSpeed); };
 void printWiFiInfo() {};
 void configWiFi(bool, const char*, const char*) { print("Skip WiFi config\n"); };
 void setWiFiMode(const String& mode) { print("Skip WiFi mode set\n"); };

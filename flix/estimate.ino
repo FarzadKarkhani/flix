@@ -2,6 +2,7 @@
 // Repository: https://github.com/okalachev/flix
 
 // Attitude estimation using gyro and accelerometer
+// Altitude estimation using rangefinder and accelerometer
 
 #include "quaternion.h"
 #include "vector.h"
@@ -16,10 +17,18 @@ float accWeight = 0.003;
 float levelWeight = 0.0002;
 LowPassFilter<Vector> ratesFilter(0.2); // cutoff frequency ~ 40 Hz
 
+float altitude = NAN; // estimated height above the surface, m
+float verticalSpeed = NAN; // estimated vertical speed, positive up, m/s
+float altWeight = 0.3; // altitude correction gain on each range measurement
+float verticalSpeedWeight = 1.5; // vertical speed correction gain on each range measurement
+float rangeTimeout = 0.2; // invalidate altitude if no valid range measurements, s
+LowPassFilter<float> accUpFilter(0.1);
+
 void estimate() {
 	applyGyro();
 	applyAcc();
 	applyLevel();
+	estimateAltitude();
 }
 
 void applyGyro() {
@@ -52,4 +61,41 @@ void applyLevel() {
 	Vector up = Quaternion::rotateVector(Vector(0, 0, 1), attitude);
 	Vector correction = Vector::rotationVectorBetween(Vector(0, 0, 1), up) * levelWeight;
 	attitude = Quaternion::rotate(attitude, Quaternion::fromRotationVector(correction));
+}
+
+void estimateAltitude() {
+	static float lastRangeTime = NAN;
+
+	if (invalid(rangeTime) || t - rangeTime > rangeTimeout) { // no fresh range measurements
+		altitude = NAN;
+		verticalSpeed = NAN;
+		return;
+	}
+
+	Vector up = Quaternion::rotateVector(Vector(0, 0, 1), attitude); // world up in body frame
+
+	// predict using vertical acceleration
+	if (valid(altitude)) {
+		float accUp = accUpFilter.update(Vector::dot(acc, up) - ONE_G);
+		verticalSpeed += accUp * dt;
+		altitude += verticalSpeed * dt;
+	}
+
+	if (rangeTime == lastRangeTime) return; // no new measurement
+	lastRangeTime = rangeTime;
+
+	if (up.z < 0.5) return; // tilted too much for the measurement to be meaningful
+	float measured = range * up.z; // vertical distance
+
+	if (invalid(altitude)) { // initialize
+		altitude = measured;
+		verticalSpeed = 0;
+		accUpFilter.reset();
+		return;
+	}
+
+	// correct using the rangefinder
+	float error = measured - altitude;
+	altitude += altWeight * error;
+	verticalSpeed += verticalSpeedWeight * error;
 }

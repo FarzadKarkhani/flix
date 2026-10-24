@@ -9,7 +9,7 @@
 #include "filter.h"
 #include "util.h"
 
-const int RAW = 0, ACRO = 1, STAB = 2, AUTO = 3; // flight modes
+const int RAW = 0, ACRO = 1, STAB = 2, AUTO = 3, ALT = 4; // flight modes
 int mode = STAB;
 bool armed = false;
 
@@ -18,6 +18,9 @@ Vector ratesTarget;
 Vector ratesExtra; // feedforward rates
 Vector torqueTarget;
 float thrustTarget;
+float altitudeTarget = NAN;
+float verticalSpeedTarget = NAN;
+float hoverEstimate = NAN; // learned hover thrust in ALT mode
 
 PID rollRatePID(0.05, 0.2, 0.001, 0.3, 0.2);
 PID pitchRatePID(0.05, 0.2, 0.001, 0.3, 0.2);
@@ -25,16 +28,23 @@ PID yawRatePID(0.3, 0, 0, 0.3);
 PID rollPID(6);
 PID pitchPID(6);
 PID yawPID(3);
+PID altitudePID(2); // altitude error -> vertical speed
+PID verticalSpeedPID(0.25, 0.5, 0, 0.4); // vertical speed error -> thrust
+float hoverThrust = 0.4; // thrust to hover, used on takeoff in ALT mode, learned automatically on landing
+float verticalSpeedMax = 0.5; // m/s
+float altitudeGround = 0.05; // below this altitude the drone is considered on the ground, m
 Vector maxRate(radians(360), radians(360), radians(360));
 float tiltMax = radians(30);
 int flightModes[] = {STAB, STAB, STAB}; // map for rc mode switch
 
 extern const int MOT_RL, MOT_RR, MOT_FR, MOT_FL;
 extern float controlRoll, controlPitch, controlThrottle, controlYaw, controlMode;
+extern float rangeMax;
 
 void control() {
 	interpretControls();
 	failsafe();
+	controlAltitude();
 	controlAttitude();
 	controlRates();
 	controlTorque();
@@ -54,7 +64,7 @@ void interpretControls() {
 
 	thrustTarget = controlThrottle;
 
-	if (mode == STAB) {
+	if (mode == STAB || mode == ALT) {
 		float yawTarget = attitudeTarget.getYaw();
 		if (!armed || invalid(yawTarget) || controlYaw != 0) yawTarget = attitude.getYaw(); // reset yaw target
 		attitudeTarget = Quaternion::fromEuler(Vector(controlRoll * tiltMax, controlPitch * tiltMax, yawTarget));
@@ -73,6 +83,73 @@ void interpretControls() {
 		ratesTarget.invalidate(); // skip rate control
 		torqueTarget = Vector(controlRoll, controlPitch, -controlYaw) * 0.1;
 	}
+}
+
+void controlAltitude() {
+	static float thrustBase = NAN; // hover thrust guess at the moment of engaging
+	static float engageTime = NAN;
+
+	if (mode != ALT || !armed) {
+		altitudeTarget = NAN;
+		verticalSpeedTarget = NAN;
+		hoverEstimate = NAN;
+		return;
+	}
+
+	// Throttle stick: center - hold altitude, up/down - climb/descend
+	const float deadZone = 0.2;
+	float stick = (controlThrottle - 0.5f) * 2;
+	if (abs(stick) < deadZone) stick = 0;
+	else stick = (stick - (stick > 0 ? deadZone : -deadZone)) / (1 - deadZone);
+	stick = constrain(stick, -1, 1);
+	float climbRate = stick * verticalSpeedMax;
+
+	if (invalid(altitude)) {
+		// no altitude data (out of range or sensor failure)
+		altitudeTarget = NAN;
+		verticalSpeedTarget = NAN;
+		if (valid(hoverEstimate)) { // keep the hover thrust, let the pilot adjust it
+			thrustTarget = constrain(hoverEstimate + stick * 0.1f, 0.1f, 1.0f);
+		} // otherwise use the throttle stick directly like in STAB
+		return;
+	}
+
+	// Stay on the ground until the pilot raises the throttle stick
+	bool onGround = altitude < altitudeGround;
+	if (onGround && stick <= 0 && (invalid(altitudeTarget) || altitudeTarget < altitudeGround)) {
+		if (valid(hoverEstimate) && t - engageTime > 5) {
+			hoverThrust = constrain(hoverEstimate, 0.1f, 0.9f); // remember the learned hover thrust for the next takeoff
+		}
+		altitudeTarget = NAN; // landed
+		verticalSpeedTarget = NAN;
+		hoverEstimate = NAN;
+		thrustTarget = 0;
+		return;
+	}
+
+	// Engage altitude hold
+	if (invalid(altitudeTarget)) {
+		altitudeTarget = altitude;
+		if (valid(hoverEstimate)) thrustBase = hoverEstimate; // altitude data is back
+		else if (onGround) thrustBase = hoverThrust; // takeoff
+		else thrustBase = controlThrottle; // switched to ALT in flight
+		if (invalid(hoverEstimate)) engageTime = t;
+		altitudePID.reset();
+		verticalSpeedPID.reset();
+	}
+
+	altitudeTarget += climbRate * dt;
+	altitudeTarget = constrain(altitudeTarget, 0, rangeMax - 0.1f);
+
+	verticalSpeedTarget = altitudePID.update(altitudeTarget - altitude) + climbRate;
+	verticalSpeedTarget = constrain(verticalSpeedTarget, -verticalSpeedMax, verticalSpeedMax);
+
+	float thrust = thrustBase + verticalSpeedPID.update(verticalSpeedTarget - verticalSpeed);
+	hoverEstimate = thrustBase + constrain(verticalSpeedPID.i * verticalSpeedPID.integral, -verticalSpeedPID.windup, verticalSpeedPID.windup);
+
+	// Compensate thrust loss when tilted
+	Vector up = Quaternion::rotateVector(Vector(0, 0, 1), attitude);
+	thrustTarget = constrain(thrust / constrain(up.z, 0.7f, 1.0f), 0.1f, 1.0f);
 }
 
 void controlAttitude() {
@@ -151,6 +228,7 @@ const char* getModeName() {
 		case ACRO: return "ACRO";
 		case STAB: return "STAB";
 		case AUTO: return "AUTO";
+		case ALT: return "ALT";
 		default: return "UNKNOWN";
 	}
 }

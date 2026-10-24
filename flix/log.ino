@@ -32,7 +32,10 @@ LogEntry logEntries[] = {
 	{"attitudeTarget.x", &attitudeTargetEuler.x},
 	{"attitudeTarget.y", &attitudeTargetEuler.y},
 	{"attitudeTarget.z", &attitudeTargetEuler.z},
-	{"thrustTarget", &thrustTarget}
+	{"thrustTarget", &thrustTarget},
+	{"altitude", &altitude},
+	{"altitudeTarget", &altitudeTarget},
+	{"verticalSpeed", &verticalSpeed}
 };
 
 const int logColumns = sizeof(logEntries) / sizeof(logEntries[0]);

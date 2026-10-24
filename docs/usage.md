@@ -299,7 +299,7 @@ When finished flying, **disarm** the drone, moving the left stick to the bottom 
 
 ### Flight modes
 
-Flight mode is changed using mode switch on the remote control (if configured) or using the console commands. The main flight mode is *STAB*. In order to change modes using SBUS remote control, set the parameters: `CTL_FLT_MODE_0`, `CTL_FLT_MODE_1`, and `CTL_FLT_MODE_2` to required mode numbers (0 for *RAW*, 1 for *ACRO*, 2 for *STAB*, 3 for *AUTO*).
+Flight mode is changed using mode switch on the remote control (if configured) or using the console commands. The main flight mode is *STAB*. In order to change modes using SBUS remote control, set the parameters: `CTL_FLT_MODE_0`, `CTL_FLT_MODE_1`, and `CTL_FLT_MODE_2` to required mode numbers (0 for *RAW*, 1 for *ACRO*, 2 for *STAB*, 3 for *AUTO*, 4 for *ALT*).
 
 #### STAB
 
@@ -321,6 +321,33 @@ In this mode, the pilot controls the angular rates. This control method is diffi
 In this mode, the pilot inputs are ignored (except the mode switch). The drone can be controlled using [pyflix](../tools/pyflix/) Python library, or by modifying the firmware to implement the needed behavior.
 
 If the pilot moves the control sticks and mode switch is not configured, the drone will switch back to *STAB* mode.
+
+#### ALT
+
+Altitude hold mode. It requires a downward-facing range sensor (see [Range sensor](#range-sensor)). The attitude is controlled like in *STAB* mode, and the throttle stick controls the vertical speed:
+
+* stick in the center — hold the current altitude;
+* stick up/down — climb/descend with the speed up to `CTL_VZ_MAX`.
+
+To take off, arm the drone with the throttle stick down and move the stick up. To land, hold the stick down: the drone descends and stops the motors when touches the ground. The hover thrust is learned automatically on each landing and saved to `CTL_ALT_HOVER`.
+
+The altitude is limited by the sensor range (`RNG_MAX`). If the range measurements are lost, the drone keeps the learned hover thrust, and the throttle stick slightly adjusts it, until the measurements are back.
+
+> [!NOTE]
+> The drone doesn't hold its horizontal position in this mode, so drift is still possible.
+
+#### Range sensor
+
+Supported sensor is VL53L0X (e.g. GY-530 module), connected via I2C and directed down. It can share the I2C bus with the IMU (connect it to the same SDA and SCL pins), or use separate pins. Configure it in the console:
+
+```
+p RNG_MODEL 1
+p RNG_PIN_SDA <sda pin>
+p RNG_PIN_SCL <scl pin>
+reboot
+```
+
+Run `rng` command to check the sensor. Put the drone on the ground and set `RNG_OFFSET` to the measured range, so the altitude on the ground is zero. The other parameters are `RNG_MAX` (maximum valid distance, m) and `RNG_BUDGET` (measurement time, µs; lower is faster but noisier).
 
 ## Wi-Fi configuration
 

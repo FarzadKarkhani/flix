@@ -24,6 +24,7 @@ libs .libs:
 	arduino-cli lib update-index
 	arduino-cli lib install "FlixPeriph"
 	arduino-cli lib install "MAVLink"@2.0.33
+	arduino-cli lib install "VL53L0X"@1.3.1
 	touch .libs
 
 upload_proxy: .core .libs

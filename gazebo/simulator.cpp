@@ -76,6 +76,8 @@ public:
 
 		voltage = 4.2f; // dummy voltage value
 
+		readRange();
+
 		readRC();
 		estimate();
 
@@ -90,6 +92,19 @@ public:
 		publishTopics();
 		logData();
 		syncParameters();
+	}
+
+	// virtual downward rangefinder
+	void readRange() {
+		static Rate rate(30); // VL53L0X measurement rate
+		if (!rate) return;
+		auto pose = this->model->WorldPose();
+		double cosTilt = pose.Rot().RotateVector(Vector3d(0, 0, 1)).Z();
+		if (cosTilt < 0.1) { range = NAN; return; }
+		double distance = pose.Pos().Z() / cosTilt;
+		if (distance > rangeMax) { range = NAN; return; }
+		range = distance < 0 ? 0 : distance;
+		rangeTime = t;
 	}
 
 	void applyMotorForces() {

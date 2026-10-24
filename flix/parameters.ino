@@ -9,6 +9,8 @@
 extern int channelZero[16], channelMax[16];
 extern int rollChannel, pitchChannel, throttleChannel, yawChannel, armedChannel, modeChannel;
 extern int rcRxPin, voltagePin;
+extern int rangeModel, rangeSdaPin, rangeSclPin, rangeBudget;
+extern float rangeMax, rangeOffset;
 extern int wifiMode, wifiLongRange, wifiBroadcast, udpLocalPort, udpRemotePort, espnowChannel;
 extern float rcLossTimeout, descendTime, disarmTilt;
 extern float voltageScale;
@@ -58,6 +60,14 @@ Parameter parameters[] = {
 	{"CTL_FLT_MODE_0", &flightModes[0]},
 	{"CTL_FLT_MODE_1", &flightModes[1]},
 	{"CTL_FLT_MODE_2", &flightModes[2]},
+	{"CTL_ALT_P", &altitudePID.p},
+	{"CTL_VZ_P", &verticalSpeedPID.p},
+	{"CTL_VZ_I", &verticalSpeedPID.i},
+	{"CTL_VZ_D", &verticalSpeedPID.d},
+	{"CTL_VZ_WU", &verticalSpeedPID.windup},
+	{"CTL_VZ_MAX", &verticalSpeedMax},
+	{"CTL_ALT_HOVER", &hoverThrust},
+	{"CTL_ALT_GROUND", &altitudeGround},
 	// imu
 	{"IMU_MODEL", &imuModel},
 	{"IMU_BUS", &imuBus},
@@ -82,6 +92,17 @@ Parameter parameters[] = {
 	{"EST_ACC_WEIGHT", &accWeight},
 	{"EST_LVL_WEIGHT", &levelWeight},
 	{"EST_RATES_LPF_A", &ratesFilter.alpha},
+	{"EST_ALT_WEIGHT", &altWeight},
+	{"EST_VZ_WEIGHT", &verticalSpeedWeight},
+	{"EST_ALT_ACC_A", &accUpFilter.alpha},
+	{"EST_RNG_TIMEOUT", &rangeTimeout},
+	// range sensor
+	{"RNG_MODEL", &rangeModel},
+	{"RNG_PIN_SDA", &rangeSdaPin},
+	{"RNG_PIN_SCL", &rangeSclPin},
+	{"RNG_BUDGET", &rangeBudget},
+	{"RNG_MAX", &rangeMax},
+	{"RNG_OFFSET", &rangeOffset},
 	// motors
 	{"MOT_PIN_FL", &motorPins[MOT_FL], setupMotors},
 	{"MOT_PIN_FR", &motorPins[MOT_FR], setupMotors},
@@ -130,6 +151,7 @@ Parameter parameters[] = {
 	{"MAV_RATE_RC", &telemetryRC.rate},
 	{"MAV_RATE_MOT", &telemetryMotors.rate},
 	{"MAV_RATE_IMU", &telemetryIMU.rate},
+	{"MAV_RATE_RNG", &telemetryRange.rate},
 	// power
 	{"PWR_VOLT_PIN", &voltagePin, setupPower},
 	{"PWR_VOLT_SCALE", &voltageScale},

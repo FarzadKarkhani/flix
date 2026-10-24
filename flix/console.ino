@@ -9,7 +9,7 @@
 #include "filter.h"
 
 extern const int MOT_RL, MOT_RR, MOT_FR, MOT_FL;
-extern const int RAW, ACRO, STAB, AUTO;
+extern const int RAW, ACRO, STAB, AUTO, ALT;
 extern const int W_AP, W_STA, W_ESPNOW;
 extern float t, dt, loopRate;
 extern uint16_t channels[16];
@@ -37,10 +37,11 @@ const char* motd =
 "time - show time info\n"
 "imu - show IMU data\n"
 "ca - calibrate accel\n"
+"rng - show range sensor and altitude\n"
 "st - show state estimation\n"
 "arm - arm the drone\n"
 "disarm - disarm the drone\n"
-"raw/stab/acro/auto - set mode\n"
+"raw/stab/acro/auto/alt - set mode\n"
 "rc - show RC data\n"
 "cr - calibrate RC\n"
 "pw - show power info\n"
@@ -132,6 +133,9 @@ void doCommand(String str, bool echo = false) {
 		print("attitude: %g %g %g %g\n", attitude.w, attitude.x, attitude.y, attitude.z);
 		print("roll: %g° pitch: %g° yaw: %g°\n", degrees(attitude.getRoll()), degrees(attitude.getPitch()), degrees(attitude.getYaw()));
 		print("landed: %d\n", landed);
+		print("altitude: %g m vertical speed: %g m/s\n", altitude, verticalSpeed);
+	} else if (command == "rng") {
+		printRangeInfo();
 	} else if (command == "arm") {
 		armed = true;
 	} else if (command == "disarm") {
@@ -144,6 +148,8 @@ void doCommand(String str, bool echo = false) {
 		mode = ACRO;
 	} else if (command == "auto") {
 		mode = AUTO;
+	} else if (command == "alt") {
+		mode = ALT;
 	} else if (command == "rc") {
 		print("channels: ");
 		for (int i = 0; i < 16; i++) {

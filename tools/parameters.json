@@ -31,8 +31,16 @@
 			"type": "Float",
 			"group": "Control",
 			"shortDesc": "Flight mode for switch position {n}",
-			"values": [{ "value": 0, "description": "RAW" }, { "value": 1, "description": "ACRO" }, { "value": 2, "description": "STAB" }, { "value": 3, "description": "AUTO" }, { "value": 4, "description": "POS" }]
+			"values": [{ "value": 0, "description": "RAW" }, { "value": 1, "description": "ACRO" }, { "value": 2, "description": "STAB" }, { "value": 3, "description": "AUTO" }, { "value": 4, "description": "ALT" }]
 		},
+		{ "name": "CTL_ALT_P", "type": "Float", "group": "Control", "shortDesc": "Proportional gain for altitude (altitude error to vertical speed)" },
+		{ "name": "CTL_VZ_P", "type": "Float", "group": "Control", "shortDesc": "Proportional gain for vertical speed" },
+		{ "name": "CTL_VZ_I", "type": "Float", "group": "Control", "shortDesc": "Integral gain for vertical speed" },
+		{ "name": "CTL_VZ_D", "type": "Float", "group": "Control", "shortDesc": "Derivative gain for vertical speed" },
+		{ "name": "CTL_VZ_WU", "type": "Float", "group": "Control", "shortDesc": "Integral windup limit for vertical speed" },
+		{ "name": "CTL_VZ_MAX", "type": "Float", "group": "Control", "units": "m/s", "shortDesc": "Maximum climb and descent speed for ALT mode", "min": 0 },
+		{ "name": "CTL_ALT_HOVER", "type": "Float", "group": "Control", "shortDesc": "Hover thrust for ALT mode takeoff, learned automatically on landing", "min": 0, "max": 1 },
+		{ "name": "CTL_ALT_GROUND", "type": "Float", "group": "Control", "units": "m", "shortDesc": "Altitude below which the drone is considered landed in ALT mode", "min": 0 },
 
 		{
 			"name": "IMU_MODEL",
@@ -80,6 +88,25 @@
 		{ "name": "EST_ACC_WEIGHT", "type": "Float", "group": "Estimation", "shortDesc": "Accelerometer weight" },
 		{ "name": "EST_LVL_WEIGHT", "type": "Float", "group": "Estimation", "shortDesc": "Level weight", "decimalPlaces": 5 },
 		{ "name": "EST_RATES_LPF_A", "type": "Float", "group": "Estimation", "shortDesc": "Low-pass filter alpha for rates" },
+		{ "name": "EST_ALT_WEIGHT", "type": "Float", "group": "Estimation", "shortDesc": "Altitude correction weight per range measurement" },
+		{ "name": "EST_VZ_WEIGHT", "type": "Float", "group": "Estimation", "shortDesc": "Vertical speed correction weight per range measurement" },
+		{ "name": "EST_ALT_ACC_A", "type": "Float", "group": "Estimation", "shortDesc": "Low-pass filter alpha for vertical acceleration" },
+		{ "name": "EST_RNG_TIMEOUT", "type": "Float", "group": "Estimation", "units": "s", "shortDesc": "Altitude is invalid if no range measurements for this time", "min": 0 },
+		{
+			"name": "RNG_MODEL",
+			"type": "Float",
+			"group": "Range sensor",
+			"shortDesc": "Downward range sensor model",
+			"increment": 1,
+			"decimalPlaces": 0,
+			"values": [{ "value": -1, "description": "Disabled" }, { "value": 1, "description": "VL53L0X" }],
+			"rebootRequired": true
+		},
+		{ "name": "RNG_PIN_SDA", "type": "Float", "group": "Range sensor", "shortDesc": "Range sensor I2C SDA pin", "min": 0, "increment": 1, "decimalPlaces": 0, "rebootRequired": true },
+		{ "name": "RNG_PIN_SCL", "type": "Float", "group": "Range sensor", "shortDesc": "Range sensor I2C SCL pin", "min": 0, "increment": 1, "decimalPlaces": 0, "rebootRequired": true },
+		{ "name": "RNG_BUDGET", "type": "Float", "group": "Range sensor", "units": "us", "shortDesc": "Measurement timing budget (lower is faster but noisier)", "min": 20000, "increment": 1000, "decimalPlaces": 0, "rebootRequired": true },
+		{ "name": "RNG_MAX", "type": "Float", "group": "Range sensor", "units": "m", "shortDesc": "Maximum valid distance", "min": 0 },
+		{ "name": "RNG_OFFSET", "type": "Float", "group": "Range sensor", "units": "m", "shortDesc": "Sensor reading when the drone is on the ground" },
 		{ "name": "EST_RATES_NO_F", "type": "Float", "group": "Estimation", "units": "Hz", "shortDesc": "Notch filter center frequency for rates", "min": 0, "decimalPlaces": 0 },
 		{ "name": "EST_RATES_NO_BW", "type": "Float", "group": "Estimation", "units": "Hz", "shortDesc": "Notch filter bandwidth for rates", "min": 0, "decimalPlaces": 0 },
 
@@ -165,6 +192,7 @@
 		{ "name": "MAV_RATE_RC", "type": "Float", "group": "MAVLink", "units": "Hz", "shortDesc": "Rate for RC channels", "min": 0, "decimalPlaces": 0 },
 		{ "name": "MAV_RATE_MOT", "type": "Float", "group": "MAVLink", "units": "Hz", "shortDesc": "Rate for motors state", "min": 0, "decimalPlaces": 0 },
 		{ "name": "MAV_RATE_IMU", "type": "Float", "group": "MAVLink", "units": "Hz", "shortDesc": "Rate for IMU data", "min": 0, "decimalPlaces": 0 },
+		{ "name": "MAV_RATE_RNG", "type": "Float", "group": "MAVLink", "units": "Hz", "shortDesc": "Rate for distance sensor data", "min": 0, "decimalPlaces": 0 },
 		{ "name": "MAV_RATE_TOPIC", "type": "Float", "group": "MAVLink", "units": "Hz", "shortDesc": "Rate for exposed log topic", "min": 0, "decimalPlaces": 0 },
 
 		{

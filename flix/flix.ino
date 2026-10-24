@@ -13,6 +13,8 @@ extern Vector gyro, acc;
 extern Vector rates;
 extern Quaternion attitude;
 extern bool landed;
+extern float range, rangeTime;
+extern float altitude, verticalSpeed;
 extern float motors[4];
 
 void setup() {
@@ -25,6 +27,7 @@ void setup() {
 	setupMotors();
 	setupWiFi();
 	setupIMU();
+	setupRange();
 	setupRC();
 	setLED(false);
 	print("Initializing complete\n");
@@ -33,6 +36,7 @@ void setup() {
 void loop() {
 	readIMU();
 	step();
+	readRange();
 	readRC();
 	estimate();
 	control();

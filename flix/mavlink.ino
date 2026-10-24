@@ -8,6 +8,7 @@
 
 extern float controlTime;
 extern float voltage;
+extern float rangeMax;
 
 int mavlinkSysId = 1;
 
@@ -16,6 +17,7 @@ Rate telemetryAttitude(20);
 Rate telemetryRC(10);
 Rate telemetryMotors(10);
 Rate telemetryIMU(15);
+Rate telemetryRange(10);
 
 float mavlinkTime = NAN; // time of last received message
 String mavlinkPrintBuffer;
@@ -34,7 +36,7 @@ void sendMavlink() {
 	if (telemetrySlow) {
 		mavlink_msg_heartbeat_pack(mavlinkSysId, MAV_COMP_ID_AUTOPILOT1, &msg, MAV_TYPE_QUADROTOR, MAV_AUTOPILOT_FLIX,
 			(armed ? MAV_MODE_FLAG_SAFETY_ARMED : 0) |
-			((mode == STAB) ? MAV_MODE_FLAG_STABILIZE_ENABLED : 0) |
+			((mode == STAB || mode == ALT) ? MAV_MODE_FLAG_STABILIZE_ENABLED : 0) |
 			((mode == AUTO) ? MAV_MODE_FLAG_AUTO_ENABLED : MAV_MODE_FLAG_MANUAL_INPUT_ENABLED),
 			mode, MAV_STATE_STANDBY);
 		sendMessage(&msg);
@@ -82,6 +84,14 @@ void sendMavlink() {
 			acc.x / ONE_G * 1000, -acc.y / ONE_G * 1000, -acc.z / ONE_G * 1000, // convert to frd
 			gyro.x * 1000, -gyro.y * 1000, -gyro.z * 1000,
 			0, 0, 0, 0);
+		sendMessage(&msg);
+	}
+
+	if (telemetryRange && valid(rangeTime)) {
+		const float q[] = {0, 0, 0, 0};
+		mavlink_msg_distance_sensor_pack(mavlinkSysId, MAV_COMP_ID_AUTOPILOT1, &msg, time,
+			0, rangeMax * 100, valid(range) ? range * 100 : UINT16_MAX,
+			MAV_DISTANCE_SENSOR_LASER, 0, MAV_SENSOR_ROTATION_PITCH_270, UINT8_MAX, 0, 0, q, 0);
 		sendMessage(&msg);
 	}
 }
@@ -284,7 +294,7 @@ int handleMavlinkCommand(const void *_m) {
 	}
 
 	if (m.command == MAV_CMD_DO_SET_MODE) {
-		if (m.param2 < 0 || m.param2 > AUTO) return MAV_RESULT_DENIED; // incorrect mode
+		if (m.param2 < 0 || m.param2 > ALT) return MAV_RESULT_DENIED; // incorrect mode
 		mode = m.param2;
 		return MAV_RESULT_ACCEPTED;
 	}
