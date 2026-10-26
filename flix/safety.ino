@@ -20,7 +20,22 @@ void failsafe() {
 void rcLossFailsafe() {
 	if (!armed) return;
 	if (t - controlTime > rcLossTimeout) {
-		descend();
+		if (mode == ALT && valid(altitude)) {
+			autoLand();
+		} else {
+			descend();
+		}
+	}
+}
+
+// Slow landing using altitude hold on RC lost
+void autoLand() {
+	controlRoll = 0;
+	controlPitch = 0;
+	controlYaw = 0;
+	controlThrottle = 0.3; // throttle stick slightly down: descend slowly
+	if (invalid(altitudeTarget) && altitude < altitudeGround) { // landed
+		armed = false;
 	}
 }
 

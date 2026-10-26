@@ -62,7 +62,7 @@ void interpretControls() {
 
 	if (abs(controlYaw) < 0.1) controlYaw = 0; // yaw dead zone
 
-	thrustTarget = controlThrottle;
+	if (mode != ALT) thrustTarget = controlThrottle; // in ALT mode thrust is set by controlAltitude
 
 	if (mode == STAB || mode == ALT) {
 		float yawTarget = attitudeTarget.getYaw();
@@ -88,11 +88,14 @@ void interpretControls() {
 void controlAltitude() {
 	static float thrustBase = NAN; // hover thrust guess at the moment of engaging
 	static float engageTime = NAN;
+	static float lastAltitude = NAN; // last valid altitude
 
 	if (mode != ALT || !armed) {
 		altitudeTarget = NAN;
 		verticalSpeedTarget = NAN;
 		hoverEstimate = NAN;
+		lastAltitude = NAN;
+		if (mode == ALT) thrustTarget = 0; // disarmed
 		return;
 	}
 
@@ -108,11 +111,17 @@ void controlAltitude() {
 		// no altitude data (out of range or sensor failure)
 		altitudeTarget = NAN;
 		verticalSpeedTarget = NAN;
-		if (valid(hoverEstimate)) { // keep the hover thrust, let the pilot adjust it
-			thrustTarget = constrain(hoverEstimate + stick * 0.1f, 0.1f, 1.0f);
-		} // otherwise use the throttle stick directly like in STAB
+		if (invalid(hoverEstimate)) { // never engaged, use the throttle stick directly like in STAB
+			thrustTarget = controlThrottle;
+			return;
+		}
+		if (valid(lastAltitude) && lastAltitude > rangeMax * 0.7f) {
+			hoverEstimate = max(hoverEstimate - 0.1f * dt, 0.1f); // above the sensor range: descend until the range is back
+		}
+		thrustTarget = constrain(hoverEstimate + stick * 0.1f, 0.1f, 1.0f); // keep the hover thrust, let the pilot adjust it
 		return;
 	}
+	lastAltitude = altitude;
 
 	// Stay on the ground until the pilot raises the throttle stick
 	bool onGround = altitude < altitudeGround;
@@ -131,7 +140,7 @@ void controlAltitude() {
 	if (invalid(altitudeTarget)) {
 		altitudeTarget = altitude;
 		if (valid(hoverEstimate)) thrustBase = hoverEstimate; // altitude data is back
-		else if (onGround) thrustBase = hoverThrust; // takeoff
+		else if (onGround) thrustBase = hoverThrust * 0.85f; // takeoff, the integral term adds the rest
 		else thrustBase = controlThrottle; // switched to ALT in flight
 		if (invalid(hoverEstimate)) engageTime = t;
 		altitudePID.reset();
@@ -145,6 +154,10 @@ void controlAltitude() {
 	verticalSpeedTarget = constrain(verticalSpeedTarget, -verticalSpeedMax, verticalSpeedMax);
 
 	float thrust = thrustBase + verticalSpeedPID.update(verticalSpeedTarget - verticalSpeed);
+	if (verticalSpeedPID.i > 0) { // anti-windup: don't accumulate the integral beyond its limit
+		float limit = verticalSpeedPID.windup / verticalSpeedPID.i;
+		verticalSpeedPID.integral = constrain(verticalSpeedPID.integral, -limit, limit);
+	}
 	hoverEstimate = thrustBase + constrain(verticalSpeedPID.i * verticalSpeedPID.integral, -verticalSpeedPID.windup, verticalSpeedPID.windup);
 
 	// Compensate thrust loss when tilted

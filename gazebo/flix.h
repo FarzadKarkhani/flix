@@ -72,6 +72,7 @@ void setupPower();
 void failsafe();
 void rcLossFailsafe();
 void descend();
+void autoLand();
 void autoFailsafe();
 void tiltFailsafe();
 int parametersCount();

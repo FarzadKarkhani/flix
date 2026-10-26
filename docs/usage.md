@@ -331,7 +331,9 @@ Altitude hold mode. It requires a downward-facing range sensor (see [Range senso
 
 To take off, arm the drone with the throttle stick down and move the stick up. To land, hold the stick down: the drone descends and stops the motors when touches the ground. The hover thrust is learned automatically on each landing and saved to `CTL_ALT_HOVER`.
 
-The altitude is limited by the sensor range (`RNG_MAX`). If the range measurements are lost, the drone keeps the learned hover thrust, and the throttle stick slightly adjusts it, until the measurements are back.
+The altitude is limited by the sensor range (`RNG_MAX`). If the range measurements are lost, the drone keeps the learned hover thrust, and the throttle stick slightly adjusts it, until the measurements are back. If the drone went above the sensor range, it descends slowly until the range is back.
+
+If the RC signal is lost in *ALT* mode, the drone lands slowly using the altitude hold and disarms.
 
 > [!NOTE]
 > The drone doesn't hold its horizontal position in this mode, so drift is still possible.

@@ -36,6 +36,7 @@ void setupRange() {
 	} else {
 		if (imuBus == 1) wire = &Wire1; // Wire is busy with the IMU on other pins
 		wire->begin(rangeSdaPin, rangeSclPin, 400000);
+		wire->setTimeOut(5); // don't stall the control loop if the sensor hangs the bus
 	}
 
 	vl53l0x.setBus(wire);
@@ -47,7 +48,6 @@ void setupRange() {
 	if (!vl53l0x.setMeasurementTimingBudget(rangeBudget)) {
 		print("Invalid RNG_BUDGET: %d\n", rangeBudget);
 	}
-	vl53l0x.setTimeout(0); // reads in the loop never block
 	vl53l0x.startContinuous();
 	rangeReady = true;
 }
@@ -58,10 +58,13 @@ void readRange() {
 	static Rate rate(100); // poll faster than the sensor measures
 	if (!rate) return;
 
-	if ((vl53l0x.readReg(VL53L0X::RESULT_INTERRUPT_STATUS) & 0x07) == 0) return; // no new measurement yet
+	uint8_t interrupt = vl53l0x.readReg(VL53L0X::RESULT_INTERRUPT_STATUS);
+	if (!checkRangeBus()) return;
+	if ((interrupt & 0x07) == 0) return; // no new measurement yet
 
 	uint8_t buf[12];
 	vl53l0x.readMulti(VL53L0X::RESULT_RANGE_STATUS, buf, sizeof(buf));
+	if (!checkRangeBus()) return;
 	vl53l0x.writeReg(VL53L0X::SYSTEM_INTERRUPT_CLEAR, 0x01);
 
 	rangeStatus = (buf[0] >> 3) & 0x0F;
@@ -77,6 +80,21 @@ void readRange() {
 		return;
 	}
 	rangeTime = t;
+}
+
+// Check the last I2C transaction, disable the sensor if it keeps failing
+bool checkRangeBus() {
+	static int errors = 0;
+	if (vl53l0x.last_status == 0) {
+		errors = 0;
+		return true;
+	}
+	range = NAN;
+	if (++errors >= 10) {
+		rangeReady = false;
+		print("Range sensor I2C error %d, sensor disabled\n", vl53l0x.last_status);
+	}
+	return false;
 }
 
 void printRangeInfo() {
