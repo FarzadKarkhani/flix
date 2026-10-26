@@ -4,14 +4,17 @@
 // Fail-safe functions
 
 extern float controlTime;
+extern float mavlinkTime;
 extern float controlRoll, controlPitch, controlThrottle, controlYaw;
 
 float rcLossTimeout = 1;
 float descendTime = 10;
 float disarmTilt = radians(120);
+float linkLossTimeout = 3; // connection loss timeout in automatic flight, s
 
 void failsafe() {
 	rcLossFailsafe();
+	linkLossFailsafe();
 	autoFailsafe();
 	tiltFailsafe();
 }
@@ -28,14 +31,21 @@ void rcLossFailsafe() {
 	}
 }
 
-// Slow landing using altitude hold on RC lost
+// Landing using altitude hold on RC lost
 void autoLand() {
 	controlRoll = 0;
 	controlPitch = 0;
 	controlYaw = 0;
-	controlThrottle = 0.3; // throttle stick slightly down: descend slowly
-	if (invalid(altitudeTarget) && altitude < altitudeGround) { // landed
-		armed = false;
+	if (!(altitudeCommand < altitudeGround)) land(); // start automatic landing if not landing yet
+}
+
+// Land if the connection to the ground station is lost during automatic flight (e.g. controlled by a script)
+void linkLossFailsafe() {
+	if (!armed || mode != ALT) return;
+	if (!(altitudeCommand >= altitudeGround)) return; // not in automatic flight or already landing
+	if (t - mavlinkTime > linkLossTimeout) {
+		print("Connection lost\n");
+		autoLand();
 	}
 }
 

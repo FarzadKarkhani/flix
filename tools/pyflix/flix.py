@@ -28,6 +28,9 @@ class Flix:
     armed: bool = False
     landed: bool = False
     voltage: float = math.nan
+    altitude: float = math.nan  # estimated altitude from the range sensor, m
+    altitude_target: float = math.nan  # altitude hold target in ALT mode, m
+    vertical_speed: float = math.nan  # m/s
     attitude: List[float]
     attitude_euler: List[float]  # roll, pitch, yaw
     rates: List[float]
@@ -217,6 +220,15 @@ class Flix:
             logger.info(f'Flix #{msg.get_srcSystem()}: {msg.text}')
             self._trigger('status', msg.text)
 
+        if isinstance(msg, mavlink.MAVLink_named_value_float_message):
+            if msg.name == 'alt':
+                self.altitude = msg.value
+                self._trigger('altitude', self.altitude)
+            elif msg.name == 'alt_target':
+                self.altitude_target = msg.value
+            elif msg.name == 'vz':
+                self.vertical_speed = msg.value
+
         if isinstance(msg, (mavlink.MAVLink_named_value_float_message, mavlink.MAVLink_named_value_int_message)):
             self.values[msg.name] = msg.value
             self._trigger('value', msg.name, msg.value)
@@ -323,6 +335,20 @@ class Flix:
 
     def set_armed(self, armed: bool):
         self.send_command(mavlink.MAV_CMD_COMPONENT_ARM_DISARM, (1 if armed else 0, 0, 0, 0, 0, 0, 0))
+
+    def takeoff(self, altitude: float = math.nan, wait: bool = False, tolerance: float = 0.05, timeout: float = 15):
+        """Take off in ALT mode and hold the altitude (m), or change the altitude in flight. Requires the range sensor.
+        NaN means the default altitude (CTL_ALT_TKOFF parameter)"""
+        self.send_command(mavlink.MAV_CMD_NAV_TAKEOFF, (0, 0, 0, 0, 0, 0, altitude))
+        if wait:
+            target = altitude if math.isfinite(altitude) else self.get_param('CTL_ALT_TKOFF')
+            self.wait('altitude', value=lambda alt: abs(alt - target) < tolerance, timeout=timeout)
+
+    def land(self, wait: bool = False, timeout: float = 30):
+        """Land in ALT mode and disarm"""
+        self.send_command(mavlink.MAV_CMD_NAV_LAND, (0, 0, 0, 0, 0, 0, 0))
+        if wait:
+            self.wait('armed', value=False, timeout=timeout)
 
     def set_position(self, position: Sequence[float], yaw: Optional[float] = None, wait: bool = False, tolerance: float = 0.1):
         raise NotImplementedError('Position control is not implemented yet')

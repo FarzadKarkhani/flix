@@ -42,6 +42,8 @@ const char* motd =
 "arm - arm the drone\n"
 "disarm - disarm the drone\n"
 "raw/stab/acro/auto/alt - set mode\n"
+"takeoff [<alt>] - automatic takeoff in ALT mode (default CTL_ALT_TKOFF)\n"
+"land - automatic landing in ALT mode\n"
 "rc - show RC data\n"
 "cr - calibrate RC\n"
 "pw - show power info\n"
@@ -150,6 +152,10 @@ void doCommand(String str, bool echo = false) {
 		mode = AUTO;
 	} else if (command == "alt") {
 		mode = ALT;
+	} else if (command == "takeoff") {
+		takeoff(arg0.isEmpty() ? NAN : arg0.toFloat());
+	} else if (command == "land") {
+		land();
 	} else if (command == "rc") {
 		print("channels: ");
 		for (int i = 0; i < 16; i++) {

@@ -335,6 +335,18 @@ The altitude is limited by the sensor range (`RNG_MAX`). If the range measuremen
 
 If the RC signal is lost in *ALT* mode, the drone lands slowly using the altitude hold and disarms.
 
+##### Automatic takeoff and landing
+
+In the console (or the QGroundControl MAVLink Console):
+
+* `takeoff` — arm, take off and hold `CTL_ALT_TKOFF` altitude (0.5 m by default);
+* `takeoff <alt>` — take off to the given altitude, or change the altitude in flight;
+* `land` — land with `CTL_LAND_VZ` speed and disarm.
+
+The same is available from Python: `flix.takeoff(0.5)`, `flix.land()` (see [pyflix](../tools/pyflix/)), or interactively with `tools/hover.py`. The standard MAVLink `MAV_CMD_NAV_TAKEOFF` and `MAV_CMD_NAV_LAND` commands are supported too.
+
+Moving the throttle stick cancels the automatic flight and gives the control back to the pilot (the stick works as usual in *ALT* mode). If the ground station connection is lost for `SF_LINK_TIME` seconds during the automatic flight, the drone lands by itself.
+
 > [!NOTE]
 > The drone doesn't hold its horizontal position in this mode, so drift is still possible.
 

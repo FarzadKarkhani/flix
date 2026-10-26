@@ -192,6 +192,23 @@ The following methods are in development and are not functional yet:
 
 To exit *AUTO* mode move control sticks and the drone will switch to *STAB* mode.
 
+### Altitude hold flight
+
+With the range sensor installed (see [Range sensor](../../docs/usage.md#range-sensor)), the drone can take off, hold the altitude and land by itself in *ALT* mode. The altitude control runs on the drone, the script only sends commands:
+
+```python
+flix.takeoff(0.5, wait=True)  # arm, take off and hold 0.5 m (wait until reached)
+print(flix.altitude)  # estimated altitude, m
+flix.takeoff(0.3, wait=True)  # change the altitude in flight
+flix.land(wait=True)  # land and disarm (wait until disarmed)
+```
+
+`flix.altitude`, `flix.altitude_target` and `flix.vertical_speed` provide the altitude telemetry, `altitude` event is triggered on each update.
+
+If the connection is lost for `SF_LINK_TIME` seconds (3 by default), the drone lands by itself. Moving the throttle stick on the remote control or the virtual joystick cancels the automatic flight and gives the control to the pilot.
+
+Interactive tool: [`tools/hover.py`](../hover.py) (commands `takeoff [alt]`, `alt <alt>`, `land`, `status`, `quit`).
+
 ## Usage alongside QGroundControl
 
 You can use the Flix library alongside the QGroundControl app, using proxy mode. To do that:

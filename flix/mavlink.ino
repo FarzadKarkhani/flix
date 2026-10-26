@@ -93,6 +93,12 @@ void sendMavlink() {
 			0, rangeMax * 100, valid(range) ? range * 100 : UINT16_MAX,
 			MAV_DISTANCE_SENSOR_LASER, 0, MAV_SENSOR_ROTATION_PITCH_270, UINT8_MAX, 0, 0, q, 0);
 		sendMessage(&msg);
+		mavlink_msg_named_value_float_pack(mavlinkSysId, MAV_COMP_ID_AUTOPILOT1, &msg, time, "alt", altitude);
+		sendMessage(&msg);
+		mavlink_msg_named_value_float_pack(mavlinkSysId, MAV_COMP_ID_AUTOPILOT1, &msg, time, "alt_target", altitudeTarget);
+		sendMessage(&msg);
+		mavlink_msg_named_value_float_pack(mavlinkSysId, MAV_COMP_ID_AUTOPILOT1, &msg, time, "vz", verticalSpeed);
+		sendMessage(&msg);
 	}
 }
 
@@ -291,6 +297,14 @@ int handleMavlinkCommand(const void *_m) {
 		if (m.param1 == 1 && controlThrottle > 0.05) return MAV_RESULT_DENIED; // don't arm if throttle is not low
 		armed = m.param1 == 1;
 		return MAV_RESULT_ACCEPTED;
+	}
+
+	if (m.command == MAV_CMD_NAV_TAKEOFF) {
+		return takeoff(m.param7) ? MAV_RESULT_ACCEPTED : MAV_RESULT_DENIED; // param7 is altitude
+	}
+
+	if (m.command == MAV_CMD_NAV_LAND) {
+		return land() ? MAV_RESULT_ACCEPTED : MAV_RESULT_DENIED;
 	}
 
 	if (m.command == MAV_CMD_DO_SET_MODE) {

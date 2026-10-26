@@ -21,6 +21,8 @@ float thrustTarget;
 float altitudeTarget = NAN;
 float verticalSpeedTarget = NAN;
 float hoverEstimate = NAN; // learned hover thrust in ALT mode
+float altitudeCommand = NAN; // commanded altitude in automatic flight (takeoff/land), NAN - pilot controls the altitude
+float commandThrottle = NAN; // throttle stick position at the moment of the command
 
 PID rollRatePID(0.05, 0.2, 0.001, 0.3, 0.2);
 PID pitchRatePID(0.05, 0.2, 0.001, 0.3, 0.2);
@@ -33,6 +35,8 @@ PID verticalSpeedPID(0.25, 0.5, 0, 0.4); // vertical speed error -> thrust
 float hoverThrust = 0.4; // thrust to hover, used on takeoff in ALT mode, learned automatically on landing
 float verticalSpeedMax = 0.5; // m/s
 float altitudeGround = 0.05; // below this altitude the drone is considered on the ground, m
+float takeoffAltitude = 0.5; // default takeoff altitude, m
+float landSpeed = 0.2; // automatic landing speed, m/s
 Vector maxRate(radians(360), radians(360), radians(360));
 float tiltMax = radians(30);
 int flightModes[] = {STAB, STAB, STAB}; // map for rc mode switch
@@ -51,9 +55,7 @@ void control() {
 }
 
 void interpretControls() {
-	if (controlMode < 0.25) mode = flightModes[0];
-	else if (controlMode <= 0.75) mode = flightModes[1];
-	else if (controlMode > 0.75) mode = flightModes[2];
+	if (switchMode() >= 0) mode = switchMode();
 
 	if (mode == AUTO) return; // pilot is not effective in AUTO mode
 
@@ -95,6 +97,7 @@ void controlAltitude() {
 		verticalSpeedTarget = NAN;
 		hoverEstimate = NAN;
 		lastAltitude = NAN;
+		altitudeCommand = NAN;
 		if (mode == ALT) thrustTarget = 0; // disarmed
 		return;
 	}
@@ -105,6 +108,14 @@ void controlAltitude() {
 	if (abs(stick) < deadZone) stick = 0;
 	else stick = (stick - (stick > 0 ? deadZone : -deadZone)) / (1 - deadZone);
 	stick = constrain(stick, -1, 1);
+
+	// Automatic flight (takeoff/land commands): the pilot takes over by moving the throttle stick
+	if (valid(altitudeCommand) && abs(controlThrottle - commandThrottle) > 0.1f) {
+		altitudeCommand = NAN;
+		print("Pilot took control\n");
+	}
+	bool automatic = valid(altitudeCommand);
+	if (automatic) stick = 0; // throttle stick is ignored
 	float climbRate = stick * verticalSpeedMax;
 
 	if (invalid(altitude)) {
@@ -112,20 +123,23 @@ void controlAltitude() {
 		altitudeTarget = NAN;
 		verticalSpeedTarget = NAN;
 		if (invalid(hoverEstimate)) { // never engaged, use the throttle stick directly like in STAB
-			thrustTarget = controlThrottle;
+			thrustTarget = automatic ? 0 : controlThrottle;
 			return;
 		}
-		if (valid(lastAltitude) && lastAltitude > rangeMax * 0.7f) {
-			hoverEstimate = max(hoverEstimate - 0.1f * dt, 0.1f); // above the sensor range: descend until the range is back
+		bool aboveRange = valid(lastAltitude) && lastAltitude > rangeMax * 0.7f;
+		bool landing = automatic && altitudeCommand < altitudeGround;
+		if (aboveRange || landing) {
+			hoverEstimate = max(hoverEstimate - 0.1f * dt, 0.1f); // descend until the range is back
 		}
 		thrustTarget = constrain(hoverEstimate + stick * 0.1f, 0.1f, 1.0f); // keep the hover thrust, let the pilot adjust it
 		return;
 	}
 	lastAltitude = altitude;
 
-	// Stay on the ground until the pilot raises the throttle stick
+	// Stay on the ground until the pilot raises the throttle stick or takeoff is commanded
 	bool onGround = altitude < altitudeGround;
-	if (onGround && stick <= 0 && (invalid(altitudeTarget) || altitudeTarget < altitudeGround)) {
+	bool down = automatic ? altitudeCommand < altitudeGround : stick <= 0;
+	if (onGround && down && (invalid(altitudeTarget) || altitudeTarget < altitudeGround)) {
 		if (valid(hoverEstimate) && t - engageTime > 5) {
 			hoverThrust = constrain(hoverEstimate, 0.1f, 0.9f); // remember the learned hover thrust for the next takeoff
 		}
@@ -133,6 +147,11 @@ void controlAltitude() {
 		verticalSpeedTarget = NAN;
 		hoverEstimate = NAN;
 		thrustTarget = 0;
+		if (automatic) { // automatic landing complete
+			altitudeCommand = NAN;
+			armed = false;
+			print("Landed\n");
+		}
 		return;
 	}
 
@@ -147,6 +166,11 @@ void controlAltitude() {
 		verticalSpeedPID.reset();
 	}
 
+	if (automatic) { // move the target towards the commanded altitude
+		float speed = altitudeCommand < altitudeTarget ? landSpeed : verticalSpeedMax;
+		float step = constrain(altitudeCommand - altitudeTarget, -speed * dt, speed * dt);
+		climbRate = dt > 0 ? step / dt : 0;
+	}
 	altitudeTarget += climbRate * dt;
 	altitudeTarget = constrain(altitudeTarget, 0, rangeMax - 0.1f);
 
@@ -163,6 +187,60 @@ void controlAltitude() {
 	// Compensate thrust loss when tilted
 	Vector up = Quaternion::rotateVector(Vector(0, 0, 1), attitude);
 	thrustTarget = constrain(thrust / constrain(up.z, 0.7f, 1.0f), 0.1f, 1.0f);
+}
+
+// Automatic takeoff to the given altitude (or change the altitude in flight), returns false if denied
+bool takeoff(float alt) {
+	if (invalid(alt) || alt <= 0) alt = takeoffAltitude;
+	if (invalid(altitude)) {
+		print("Takeoff denied: no altitude data, check the range sensor\n");
+		return false;
+	}
+	if (switchMode() >= 0 && switchMode() != ALT) {
+		print("Takeoff denied: set the mode switch to ALT\n");
+		return false;
+	}
+	if (!armed && altitude >= altitudeGround) {
+		print("Takeoff denied: disarmed in the air\n");
+		return false;
+	}
+	alt = constrain(alt, altitudeGround * 2, rangeMax - 0.1f);
+	mode = ALT;
+	armed = true;
+	altitudeCommand = alt;
+	commandThrottle = controlThrottle;
+	print("Takeoff to %.2f m\n", alt);
+	return true;
+}
+
+// Automatic landing, returns false if denied
+bool land() {
+	if (!armed) {
+		print("Land denied: disarmed\n");
+		return false;
+	}
+	if (invalid(altitude) && (mode != ALT || invalid(hoverEstimate))) {
+		print("Land denied: no altitude data\n");
+		return false;
+	}
+	if (switchMode() >= 0 && switchMode() != ALT) {
+		print("Land denied: set the mode switch to ALT\n");
+		return false;
+	}
+	if (mode != ALT) altitudeTarget = NAN; // engage altitude hold from the current altitude
+	mode = ALT;
+	altitudeCommand = 0;
+	commandThrottle = controlThrottle;
+	print("Landing\n");
+	return true;
+}
+
+// Flight mode selected by the RC mode switch, -1 if the switch is not used
+int switchMode() {
+	if (controlMode < 0.25) return flightModes[0];
+	if (controlMode <= 0.75) return flightModes[1];
+	if (controlMode > 0.75) return flightModes[2];
+	return -1; // NAN
 }
 
 void controlAttitude() {

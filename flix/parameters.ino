@@ -12,7 +12,7 @@ extern int rcRxPin, voltagePin;
 extern int rangeModel, rangeSdaPin, rangeSclPin, rangeBudget;
 extern float rangeMax, rangeOffset;
 extern int wifiMode, wifiLongRange, wifiBroadcast, udpLocalPort, udpRemotePort, espnowChannel;
-extern float rcLossTimeout, descendTime, disarmTilt;
+extern float rcLossTimeout, descendTime, disarmTilt, linkLossTimeout;
 extern float voltageScale;
 extern LowPassFilter<float> voltageFilter;
 
@@ -68,6 +68,8 @@ Parameter parameters[] = {
 	{"CTL_VZ_MAX", &verticalSpeedMax},
 	{"CTL_ALT_HOVER", &hoverThrust},
 	{"CTL_ALT_GROUND", &altitudeGround},
+	{"CTL_ALT_TKOFF", &takeoffAltitude},
+	{"CTL_LAND_VZ", &landSpeed},
 	// imu
 	{"IMU_MODEL", &imuModel},
 	{"IMU_BUS", &imuBus},
@@ -160,6 +162,7 @@ Parameter parameters[] = {
 	{"SF_RC_LOSS_TIME", &rcLossTimeout},
 	{"SF_DESCEND_TIME", &descendTime},
 	{"SF_DISARM_TILT", &disarmTilt},
+	{"SF_LINK_TIME", &linkLossTimeout},
 };
 
 void setupParameters() {

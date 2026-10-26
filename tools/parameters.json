@@ -41,6 +41,8 @@
 		{ "name": "CTL_VZ_MAX", "type": "Float", "group": "Control", "units": "m/s", "shortDesc": "Maximum climb and descent speed for ALT mode", "min": 0 },
 		{ "name": "CTL_ALT_HOVER", "type": "Float", "group": "Control", "shortDesc": "Hover thrust for ALT mode takeoff, learned automatically on landing", "min": 0, "max": 1 },
 		{ "name": "CTL_ALT_GROUND", "type": "Float", "group": "Control", "units": "m", "shortDesc": "Altitude below which the drone is considered landed in ALT mode", "min": 0 },
+		{ "name": "CTL_ALT_TKOFF", "type": "Float", "group": "Control", "units": "m", "shortDesc": "Default altitude for automatic takeoff", "min": 0 },
+		{ "name": "CTL_LAND_VZ", "type": "Float", "group": "Control", "units": "m/s", "shortDesc": "Descent speed for automatic landing", "min": 0 },
 
 		{
 			"name": "IMU_MODEL",
@@ -215,6 +217,7 @@
 
 		{ "name": "SF_RC_LOSS_TIME", "type": "Float", "group": "Safety", "units": "s", "shortDesc": "RC signal loss timeout in seconds", "min": 0, "decimalPlaces": 1 },
 		{ "name": "SF_DESCEND_TIME", "type": "Float", "group": "Safety", "units": "s", "shortDesc": "Automatic descent timeout in seconds", "min": 0, "decimalPlaces": 1 },
-		{ "name": "SF_DISARM_TILT", "type": "Float", "group": "Safety", "units": "radians", "shortDesc": "Tilt angle above which auto-disarm triggers" }
+		{ "name": "SF_DISARM_TILT", "type": "Float", "group": "Safety", "units": "radians", "shortDesc": "Tilt angle above which auto-disarm triggers" },
+		{ "name": "SF_LINK_TIME", "type": "Float", "group": "Safety", "units": "s", "shortDesc": "Ground station connection loss timeout in automatic flight (lands after it)", "min": 0, "decimalPlaces": 1 }
 	]
 }
