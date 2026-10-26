@@ -13,3 +13,4 @@ tools/dist/
 !.vscode/launch.json
 !.vscode/extensions.json
 !.vscode/intellisense.h
+__pycache__/
